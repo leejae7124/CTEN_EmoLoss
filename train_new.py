@@ -21,14 +21,16 @@ def train_epoch(epoch, data_loader, model, criterion, optimizer, opt, class_name
     accuracies2=AverageMeter()
     accuracies3 = AverageMeter()
     end_time = time.time()
+
+    if opt.loss_func.startswith("ce_intensity") and hasattr(criterion, "intensity_loss"):
+        criterion.intensity_loss.begin_epoch(epoch)
+
     for i, data_item in enumerate(data_loader):
         print([(i, type(x).__name__, getattr(x,'shape',None), getattr(x,'dtype',None)) for i,x in enumerate(process_data_item(opt, data_item))])
 
 
         visual, saliency_map, target, audio, visualization_item, batch_size, video_item, sal_path = process_data_item(opt, data_item)
-        
-        visual = visual.clone()
-        saliency_map = saliency_map.clone()
+
         
         data_time.update(time.time() - end_time)
         
@@ -89,6 +91,9 @@ def train_epoch(epoch, data_loader, model, criterion, optimizer, opt, class_name
                   'Erase {H:.3f} ({L:.3f})\t'.format(
                 epoch, i + 1, len(data_loader), batch_time=batch_time, data_time=data_time, loss=losses,loss1=losses1,loss2=losses2, acc=accuracies1, acc2=accuracies2,acc3=accuracies3, H=H, L=L))
     # ---------------------------------------------------------------------- #
+    if opt.loss_func.startswith("ce_intensity") and hasattr(criterion, "intensity_loss"):
+        criterion.intensity_loss.end_epoch()
+    
     print("Epoch Time: {:.2f}min".format(batch_time.avg * len(data_loader) / 60))
     print("Train loss: {:.4f}".format(losses.avg))
     print("Train acc1: {:.4f}".format(accuracies1.avg))

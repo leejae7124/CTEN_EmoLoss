@@ -1,4 +1,4 @@
-from core.utils import AverageMeter, process_data_item, run_model, calculate_accuracy,batch_augment
+from core.utils import AverageMeter, process_data_item, run_model_loss, calculate_accuracy,batch_augment
 import os
 import time
 import torch
@@ -29,14 +29,15 @@ def val_epoch(epoch, data_loader, model, criterion, opt, writer, optimizer):
         visual, saliency_map, target, audio, visualization_item, batch_size,video_item, sal_path = process_data_item(opt, data_item)
         data_time.update(time.time() - end_time)
         with torch.no_grad():
-            output1, loss1, gamma1 = run_model(opt, [visual, target, audio, saliency_map], model, criterion, i, print_attention=False)
+            output1, loss1, gamma1 = run_model_loss(opt, [visual, target, audio, saliency_map], model, criterion, i, print_attention=False, use_intensity=False,)
+    
             gamma_row_max = torch.max(gamma1,dim=1)[0]*0.7 + torch.min(gamma1,dim=1)[0]*0.3
             gamma_row_max = gamma_row_max.unsqueeze(0).transpose(1, 0)
             gamma_thre = gamma_row_max.expand(gamma1.shape)
             high_index = gamma1 < gamma_thre
             # output2,loss2,gamma2=output1,loss1,gamma1
             visual_erase1, sal_erase1 = batch_augment(video_item, high_index, opt, visual, saliency_map, sal_path)
-            output2, loss2, gamma2 = run_model(opt, [visual_erase1, target, audio, sal_erase1], model, criterion, i,print_attention=False)
+            output2, loss2, gamma2 = run_model_loss(opt, [visual_erase1, target, audio, sal_erase1], model, criterion, i,print_attention=False, use_intensity=False,)
         output=(output1+output2)/2.
         loss=loss1/2.+loss2/2.
         acc = calculate_accuracy(output, target) #앙상블 정확도

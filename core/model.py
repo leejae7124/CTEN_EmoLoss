@@ -3,6 +3,7 @@ from models.vaanet import VAANet
 from models.vaanet_erase_saliency import VAANetErase
 from models.vaanet_erase_saliency_mean_norm import VAANetErase_mean
 from models.vaanet_erase_saliency_binary import VAANetErase_binary
+from models.vaanet_erase_intensity import VAANetEraseIntensity
 from models.vaanet_erase_saliency_mean_norm_dac import VAANetErase_mean_dac
 from models.vaanet_erase_saliency_test import VAANetEraseTest
 from models.visual_stream import VisualStream
@@ -65,6 +66,19 @@ def generate_vaaerase_saliency_binary_model(opt):
         saliency_level=opt.saliency_level
     )
     # model = nn.DataParallel(model)
+    model = model.cuda()
+    return model, model.parameters()
+
+def generate_vaaerase_intensity_model(opt):
+    model = VAANetEraseIntensity(
+        snippet_duration=opt.snippet_duration,
+        sample_size=opt.sample_size,
+        n_classes=opt.n_classes,
+        seq_len=opt.seq_len,
+        pretrained_resnet101_path=opt.resnet101_pretrained,
+        audio_embed_size=opt.audio_embed_size,
+        audio_n_segments=opt.audio_n_segments,
+    )
     model = model.cuda()
     return model, model.parameters()
 
