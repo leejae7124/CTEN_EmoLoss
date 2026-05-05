@@ -93,6 +93,90 @@ def run_model(opt, inputs, model, criterion, i=0, print_attention=False, period=
     loss = criterion(outputs, target)
     return outputs,loss,gamma
 
+def run_model_loss(opt, inputs, model, criterion, i=0, print_attention=True, period=30, return_attention=False, use_intensity=True,
+):
+    """
+    CTEN + intensity loss용 run_model_loss.
+
+    inputs:
+        [visual, target, audio, saliency_map]
+
+    intensity train:
+        output, gamma, cam_map = model([visual, audio], target_class=target, compute_gradcam=True)
+        loss = CE + lambda * Align
+
+    val/test 또는 CE-only:
+        output, gamma = model([visual, audio], compute_gradcam=False)
+        loss = CE
+    """
+    visual, target, audio, saliency_map = inputs
+
+    need_align = (
+        hasattr(opt, "loss_func")
+        and str(opt.loss_func).startswith("ce_intensity")
+    )
+
+    do_cam = (
+        need_align and use_intensity and model.training and torch.is_grad_enabled()
+    )
+
+    if do_cam:
+        # CTEN intensity model:
+        # return output, gamma, cam_map
+        y_pred, gamma, cam_map = model(
+            [visual, audio], target_class=target, compute_gradcam=True,
+        )
+
+        # CE와 Align을 분리 계산
+        cls = criterion.cls_loss(y_pred, target)
+        align = criterion.intensity_loss(cam_map, saliency_map)
+
+        lam = float(getattr(criterion, "lambda_intensity", 1.0))
+        loss = cls + lam * align
+
+        if (i % period) == 0:
+            ratio = (lam * align / (cls + 1e-12)).detach().item()
+            print(
+                f"[loss] cls={cls.item():.4f}  "
+                f"align={align.item():.4f}  "
+                f"lambda={lam:.3f}  "
+                f"total={loss.item():.4f}  "
+                f"(lam*align/cls={ratio:.3f})"
+            )
+
+            if hasattr(criterion.intensity_loss, "last_terms"):
+                terms = criterion.intensity_loss.last_terms
+                if len(terms) > 0:
+                    print(
+                        "[align terms] "
+                        f"rmse={terms.get('rmse', None)}  "
+                        f"grad={terms.get('grad', None)}  "
+                        f"normal={terms.get('normal', None)}  "
+                        f"total={terms.get('total', None)}"
+                    )
+
+    else:
+        # val/test 또는 CE-only 상황
+        y_pred, gamma = model(
+            [visual, audio],
+            compute_gradcam=False,
+        )
+
+        if need_align:
+            # ce_intensity 옵션이어도 val/test에서는 CE만 계산
+            loss = criterion.cls_loss(y_pred, target)
+        else:
+            loss = criterion(y_pred, target)
+
+    if i % period == 0 and print_attention:
+        print("====gamma====")
+        print(gamma)
+
+    if not return_attention:
+        return y_pred, loss, gamma
+    else:
+        return y_pred, loss, [gamma]
+
 def run_model_inf(opt, inputs, model, i=0, print_attention=False, period=30, return_attention=False):
     visual, _, audio, saliency_map = inputs
     outputs, gamma = model([visual, audio, saliency_map])
