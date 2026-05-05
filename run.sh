@@ -1,0 +1,1 @@
+CUDA_VISIBLE_DEVICES=GPU-8c5c166b-5d2a-5f99-04f7-ba8c9cd57e85,GPU-38dcbe00-6c8c-870a-83da-4ff0c96538b8 python main.py
