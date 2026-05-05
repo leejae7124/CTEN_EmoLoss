@@ -11,7 +11,7 @@ def parse_opts():
         ],
         'paths': [
             dict(name='--resnet101_pretrained',
-                 default='./r3d101_KM_200ep.pth',
+                 default='/shared/home/affctiv/sumin/CTEN/r3d101_KM_200ep.pth',
                  type=str,
                  help='Global path of pretrained 3d resnet101 model (.pth)'),
           dict(name='--checkpoint_path',
