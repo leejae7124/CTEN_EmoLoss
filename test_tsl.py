@@ -1,5 +1,5 @@
 import torch
-from core.utils import AverageMeter, process_data_item, run_model, calculate_accuracy
+from core.utils import AverageMeter, process_data_item, run_model_loss, calculate_accuracy
 
 @torch.no_grad()
 def compute_macro_f1(y_true: torch.Tensor, y_pred: torch.Tensor, num_classes: int) -> float:
@@ -33,13 +33,14 @@ def test_epoch(data_loader, model, criterion, opt):
         for i, data_item in enumerate(data_loader):
             visual, saliency_map, target, audio, visualization_item, batch_size, video_item, sal_path = process_data_item(opt, data_item)
 
-            outputs, loss, gamma = run_model(
+            outputs, loss, gamma = run_model_loss(
                 opt,
                 [visual, target, audio, saliency_map],
                 model,
                 criterion,
                 i,
-                print_attention=False
+                print_attention=False,
+                use_intensity=False
             )
 
             acc = calculate_accuracy(outputs, target)

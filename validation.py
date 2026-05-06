@@ -22,6 +22,7 @@ def val_epoch(epoch, data_loader, model, criterion, opt, writer, optimizer):
     accuracies2 = AverageMeter()
     # ✅ 혼동행렬 초기화 (CPU에 두는 게 안전)
     confmat = torch.zeros(opt.n_classes, opt.n_classes, dtype=torch.long)
+    confmat1 = torch.zeros(opt.n_classes, opt.n_classes, dtype=torch.long)
     end_time = time.time()
 
 
@@ -53,10 +54,14 @@ def val_epoch(epoch, data_loader, model, criterion, opt, writer, optimizer):
         # ✅ Macro-F1용 예측 누적 (앙상블 출력 기준)
         with torch.no_grad():
             pred = output.argmax(dim=1).detach().cpu()
+            # output1, 즉 CTEN 논문 기준 원본 forward
+            pred1 = output1.argmax(dim=1).detach().cpu()
             tgt  = target.detach().cpu()
             # confmat[true, pred]++
             for t_i, p_i in zip(tgt.view(-1), pred.view(-1)):
                 confmat[t_i.long(), p_i.long()] += 1
+            for t_i, p_i in zip(tgt.view(-1), pred1.view(-1)):
+                confmat1[t_i.long(), p_i.long()] += 1
 
     Acc = max(accuracies.avg,accuracies1.avg,accuracies2.avg)
     writer.add_scalar('val/loss', losses.avg, epoch)
@@ -73,11 +78,22 @@ def val_epoch(epoch, data_loader, model, criterion, opt, writer, optimizer):
     macro_f1 = f1_per_class.mean().item()
     writer.add_scalar('val/macro_f1', macro_f1, epoch)
 
+    # output1 기준 macro-F1
+    TP1 = torch.diag(confmat1).to(torch.float32)
+    FP1 = confmat1.sum(0).to(torch.float32) - TP1
+    FN1 = confmat1.sum(1).to(torch.float32) - TP1
+    prec1 = TP1 / torch.clamp(TP1 + FP1, min=1.0)
+    reca1 = TP1 / torch.clamp(TP1 + FN1, min=1.0)
+    f1_per_class1 = (2 * prec1 * reca1) / torch.clamp(prec1 + reca1, min=1e-12)
+    macro_f1_acc1 = f1_per_class1.mean().item()
+    writer.add_scalar('val/macro_f1_acc1', macro_f1_acc1, epoch)
+
     print("Val loss: {:.4f}".format(losses.avg))
     print("Val acc: {:.4f}".format(accuracies.avg))
     print("Val acc1: {:.4f}".format(accuracies1.avg))
     print("Val acc2: {:.4f}".format(accuracies2.avg))
     print("Val Macro-F1: {:.4f}".format(macro_f1))
+    print("Val Macro-F1 acc1/xo: {:.4f}".format(macro_f1_acc1))
 
 
     # best acc1 (논문 기준) 갱신 시 저장

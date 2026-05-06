@@ -2,7 +2,7 @@ import torch
 from torch.cuda import device_count
 
 from opts_tsl import parse_opts
-from core.model import generate_vaaerase_model
+from core.model import generate_vaaerase_intensity_model
 from core.loss import get_loss
 from core.utils import local2global_path, get_spatial_transform, get_saliency_transform
 from core.dataset2 import get_test_set, get_data_loader
@@ -32,7 +32,7 @@ def main():
     test_loader = get_data_loader(opt, test_data, shuffle=False) #순서를 섞지 않음
 
     # model
-    model, parameters = generate_vaaerase_model(opt)
+    model, parameters = generate_vaaerase_intensity_model(opt)
     criterion = get_loss(opt).cuda()
 
     # checkpoint load
