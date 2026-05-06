@@ -3,15 +3,17 @@ import os
 # os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
 
 # print("CVD in python =", os.environ.get("CUDA_VISIBLE_DEVICES"))
-
+import argparse
 import torch
+import sys
 # print("device_count =", torch.cuda.device_count())
 # for i in range(torch.cuda.device_count()):
 #     print("logical", i, "-", torch.cuda.get_device_name(i))
 from torch.cuda import device_count
 from tensorboardX import SummaryWriter
 
-from opts_tsl_school import parse_opts
+# from opts_tsl_school import parse_opts
+# from opts_tsl import parse_opts
 from core.model import generate_vaaerase_intensity_model
 from core.loss import get_loss
 from core.optimizer import get_optim
@@ -46,9 +48,26 @@ from validation import val_epoch
 
 #     return mean, std
 
+def load_parse_opts():
+    bootstrap = argparse.ArgumentParser(add_help=False)
+    bootstrap.add_argument("--env", choices=["lab", "school"], default="lab")
 
+    args, remaining = bootstrap.parse_known_args()
+
+    # 나머지 인자들은 실제 opts parser로 넘기기 위해 sys.argv 재구성
+    sys.argv = [sys.argv[0]] + remaining
+
+    if args.env == "school":
+        print("school")
+        from opts_tsl_school import parse_opts
+    else:
+        print("lab")
+        from opts_tsl import parse_opts
+
+    return parse_opts
 
 def main():
+    parse_opts = load_parse_opts()
     opt = parse_opts()
     opt.device_ids = list(range(device_count()))
     local2global_path(opt)
@@ -65,6 +84,12 @@ def main():
     target_transform = ClassLabel()
     training_data = get_training_set(opt, spatial_transform, temporal_transform, target_transform, saliency_transform)
     train_loader = get_data_loader(opt, training_data, shuffle=True)
+
+    # print("dataset norm_mean:", training_data.norm_mean)
+    # print("dataset norm_std :", training_data.norm_std)
+
+    # audio_mean, audio_std = get_audio_stats(train_loader)
+    # print(f"Calculated Audio Stats -> Mean: {audio_mean:.6f}, Std: {audio_std:.6f}")
 
     # validation
     spatial_transform = get_spatial_transform(opt, 'val')

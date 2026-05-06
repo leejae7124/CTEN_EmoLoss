@@ -122,15 +122,15 @@ def val_epoch(epoch, data_loader, model, criterion, opt, writer, optimizer):
 
     # (선택) Macro-F1 기준 베스트 모델도 저장하고 싶다면:
     
-    if macro_f1 > best_macro_f1:
-        best_macro_f1 = macro_f1
-        save_file_path = os.path.join(opt.ckpt_path, f'save_{epoch}_best-macroF1{best_macro_f1:.4f}.pth')
+    if macro_f1_acc1 > best_macro_f1:
+        best_macro_f1 = macro_f1_acc1
+        save_file_path = os.path.join(opt.ckpt_path, f'save_{epoch}_best-macroF1-acc1-{best_macro_f1:.4f}.pth')
         states = {
             'epoch': epoch + 1,
             'state_dict': model.state_dict(),
             'optimizer': optimizer.state_dict(),
         }
         torch.save(states, save_file_path)
-        print(f"✅ New best-macroF1 model saved: {save_file_path}")
+        print(f"✅ New best-macroF1-acc1 model saved: {save_file_path}")
 
     return Acc

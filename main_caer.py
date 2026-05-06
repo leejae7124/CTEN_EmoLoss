@@ -23,28 +23,28 @@ from train_new import train_epoch
 from validation import val_epoch
 
 
-# def get_audio_stats(data_loader):
-#     sum_val = 0.0
-#     sum_sq_val = 0.0
-#     count = 0
+def get_audio_stats(data_loader):
+    sum_val = 0.0
+    sum_sq_val = 0.0
+    count = 0
 
-#     print("Calculating audio stats from training data...")
-#     for data_item in data_loader:
-#         # CTEN+Saliency dataset return:
-#         # snippets, saliency_snippets, target, audios, visualization_item, video, n_frames, sal_path
-#         audio_batch = data_item[3]
+    print("Calculating audio stats from training data...")
+    for data_item in data_loader:
+        # CTEN+Saliency dataset return:
+        # snippets, saliency_snippets, target, audios, visualization_item, video, n_frames, sal_path
+        audio_batch = data_item[3]
 
-#         sum_val += torch.sum(audio_batch).item()
-#         sum_sq_val += torch.sum(audio_batch.pow(2)).item()
-#         count += audio_batch.numel()
+        sum_val += torch.sum(audio_batch).item()
+        sum_sq_val += torch.sum(audio_batch.pow(2)).item()
+        count += audio_batch.numel()
 
-#     mean = sum_val / count
-#     std = ((sum_sq_val / count) - (mean ** 2)) ** 0.5
+    mean = sum_val / count
+    std = ((sum_sq_val / count) - (mean ** 2)) ** 0.5
 
-#     print(f"[Audio Stats] mean: {mean}")
-#     print(f"[Audio Stats] std : {std}")
+    print(f"[Audio Stats] mean: {mean}")
+    print(f"[Audio Stats] std : {std}")
 
-#     return mean, std
+    return mean, std
 
 
 
@@ -65,6 +65,13 @@ def main():
     target_transform = ClassLabel()
     training_data = get_training_set(opt, spatial_transform, temporal_transform, target_transform, saliency_transform)
     train_loader = get_data_loader(opt, training_data, shuffle=True)
+
+    print("dataset norm_mean:", training_data.norm_mean)
+    print("dataset norm_std :", training_data.norm_std)
+
+    audio_mean, audio_std = get_audio_stats(train_loader)
+    print(f"Calculated Audio Stats -> Mean: {audio_mean:.6f}, Std: {audio_std:.6f}")
+
     # validation
     spatial_transform = get_spatial_transform(opt, 'val')
     saliency_transform = get_saliency_transform(opt, 'val', spatial_transform)
