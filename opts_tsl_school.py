@@ -119,7 +119,7 @@ def parse_opts():
                  help='drop last'),
             dict(
                 name='--n_threads',
-                default=4,
+                default=8,
                 type=int,
                 help='Number of threads for multi-thread loading',
             ),

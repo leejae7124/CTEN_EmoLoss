@@ -236,7 +236,7 @@ class TSLDataset(data.Dataset):
                 audios = torch.cat(aud)
 
             audios = torch.FloatTensor(audios)
-            # audios = (audios - self.norm_mean) / (self.norm_std * 2)
+            audios = (audios - self.norm_mean) / (self.norm_std * 2)
         else:
             audios = []
 
