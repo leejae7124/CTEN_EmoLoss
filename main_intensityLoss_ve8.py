@@ -21,7 +21,7 @@ from tensorboardX import SummaryWriter
 from core.model import generate_vaaerase_intensity_model
 from core.loss import get_loss
 from core.optimizer import get_optim
-from core.utils import local2global_path, get_spatial_transform, get_saliency_transform
+from core.utils_ve8 import local2global_path, get_spatial_transform, get_saliency_transform
 from core.dataset2 import get_training_set, get_validation_set, get_test_set, get_data_loader
 from transforms.temporal import TSN
 from transforms.target import ClassLabel
@@ -63,28 +63,28 @@ def load_parse_opts():
 
     if args.env == "school":
         print("school")
-        from opts_tsl_school import parse_opts
+        from opts_ve8_school import parse_opts
     else:
         print("lab")
-        from opts_tsl import parse_opts
+        from opts_ve8 import parse_opts
 
     return parse_opts
 
-def set_seed(seed=42):
-    random.seed(seed)
-    np.random.seed(seed)
-    torch.manual_seed(seed)
-    torch.cuda.manual_seed(seed)
-    torch.cuda.manual_seed_all(seed)
-    torch.backends.cudnn.deterministic = True
-    torch.backends.cudnn.benchmark = False
+# def set_seed(seed=42):
+#     random.seed(seed)
+#     np.random.seed(seed)
+#     torch.manual_seed(seed)
+#     torch.cuda.manual_seed(seed)
+#     torch.cuda.manual_seed_all(seed)
+#     torch.backends.cudnn.deterministic = True
+#     torch.backends.cudnn.benchmark = False
 
 def main():
     parse_opts = load_parse_opts()
     opt = parse_opts()
     opt.device_ids = list(range(device_count()))
     local2global_path(opt)
-    set_seed(42)
+    # set_seed(42)
     opt.saliency_level = 'feature_map'
     model, parameters = generate_vaaerase_intensity_model(opt)
     criterion = get_loss(opt)
@@ -108,7 +108,7 @@ def main():
     # validation
     spatial_transform = get_spatial_transform(opt, 'val')
     saliency_transform = get_saliency_transform(opt, 'val', spatial_transform)
-    temporal_transform = TSN(seq_len=opt.seq_len, snippet_duration=opt.snippet_duration, center=True)
+    temporal_transform = TSN(seq_len=opt.seq_len, snippet_duration=opt.snippet_duration, center=False)
     target_transform = ClassLabel()
     validation_data = get_validation_set(opt, spatial_transform, temporal_transform, target_transform, saliency_transform)
     val_loader = get_data_loader(opt, validation_data, shuffle=False)
