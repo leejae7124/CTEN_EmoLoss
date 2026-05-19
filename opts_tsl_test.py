@@ -17,7 +17,7 @@ def parse_opts():
           dict(name='--checkpoint_path',
                     # default='/home/leessu/code/CTEN/tools/annotations/tsl/results/result_20260415_102141/checkpoints/save_1_best-macroF10.7715.pth',
                     # default='/mnt/Members/leessu/EmoCam_weights/CTEN_saliency_weights/Saliency_EmoLoss/result_20260506_002242/checkpoints/save_19_best-loss0.4843.pth',
-                    default='/home/leessu/code/CTEN/tools/annotations/tsl/results/result_20260515_194512/checkpoints/save_21_best-loss0.4946.pth',
+                    default='/mnt/Members/leessu/EmoCam_weights/CTEN_saliency_weights/Saliency_EmoLoss/TSL-300/result_20260518_030644/checkpoints/save_3_best-loss0.5644.pth',
                  type=str,
                  help='Path of the saved model checkpoint (.pth)'),
             dict(name='--root_path',
