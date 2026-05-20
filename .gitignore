@@ -37,3 +37,5 @@ tools/annotations/ve8/results/
 *.tfevents.*
 *.log
 *.png
+
+debug_crop/debug_crop/
