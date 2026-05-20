@@ -92,7 +92,14 @@ def train_epoch(epoch, data_loader, model, criterion, optimizer, opt, class_name
                 epoch, i + 1, len(data_loader), batch_time=batch_time, data_time=data_time, loss=losses,loss1=losses1,loss2=losses2, acc=accuracies1, acc2=accuracies2,acc3=accuracies3, H=H, L=L))
     # ---------------------------------------------------------------------- #
     if opt.loss_func.startswith("ce_intensity") and hasattr(criterion, "intensity_loss"):
-        criterion.intensity_loss.end_epoch()
+        cam_logs = criterion.intensity_loss.end_epoch(epoch)
+
+        if cam_logs is not None:
+            for k, v in cam_logs.items():
+                if isinstance(v, (int, float)):
+                    writer.add_scalar(f"cam_calib/{k}", v, epoch)
+
+        writer.flush()
     
     print("Epoch Time: {:.2f}min".format(batch_time.avg * len(data_loader) / 60))
     print("Train loss: {:.4f}".format(losses.avg))

@@ -36,3 +36,4 @@ env/
 tools/annotations/ve8/results/
 *.tfevents.*
 *.log
+*.png

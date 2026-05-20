@@ -94,6 +94,8 @@ class Intensity(nn.Module):
 
         # 현재 epoch에서 통계를 모을지 여부 (파이썬 bool)
         self._collect_this_epoch = False
+        self.last_calib = {}
+        self.last_batch_p95 = None
 
     def begin_epoch(self, epoch: int):
         """
@@ -110,21 +112,65 @@ class Intensity(nn.Module):
         self.epoch_cnt.zero_()
 
     @torch.no_grad()
-    def end_epoch(self):
+    def end_epoch(self, epoch=None):
         """
-        train loop에서 epoch 끝날 때 호출.
-        누적된 통계로 scale을 갱신.
+        epoch 끝에서 CAM p95 통계로 scale을 갱신하고,
+        터미널 출력 + TensorBoard 기록용 dict를 반환.
         """
-        if self.cam_calib != "epoch_p95":
-            return
-        if not self._collect_this_epoch:
-            return
+        old_scale = float(self.scale.item())
+        cnt = int(self.epoch_cnt.item())
 
-        if self.epoch_cnt.item() > 0:
+        log_dict = {
+            "old_scale": old_scale,
+            "new_scale": old_scale,
+            "scale": old_scale,
+            "epoch_cnt": float(cnt),
+            "updated": 0.0,
+            "last_batch_p95": -1.0 if self.last_batch_p95 is None else float(self.last_batch_p95),
+        }
+
+        if self.cam_calib != "epoch_p95":
+            self.last_calib = log_dict
+            return log_dict
+
+        if not self._collect_this_epoch:
+            self.last_calib = log_dict
+            return log_dict
+
+        if cnt > 0:
             new_scale = (self.epoch_sum / self.epoch_cnt.float()).clamp_min(self.eps)
             self.scale.copy_(new_scale)
 
+            new_scale_float = float(new_scale.item())
+            log_dict = {
+                "old_scale": old_scale,
+                "new_scale": new_scale_float,
+                "scale": new_scale_float,
+                "epoch_cnt": float(cnt),
+                "updated": 1.0,
+                "last_batch_p95": -1.0 if self.last_batch_p95 is None else float(self.last_batch_p95),
+            }
+
+            print(
+                f"[CAM CALIB] epoch={epoch} "
+                f"old_scale={old_scale:.8f} "
+                f"new_scale={new_scale_float:.8f} "
+                f"cnt={cnt} "
+                f"last_batch_p95={log_dict['last_batch_p95']:.8f}",
+                flush=True
+            )
+        else:
+            print(
+                f"[CAM CALIB] epoch={epoch} "
+                f"old_scale={old_scale:.8f} "
+                f"new_scale={old_scale:.8f} "
+                f"cnt=0 no_update",
+                flush=True
+            )
+
         self._collect_this_epoch = False
+        self.last_calib = log_dict
+        return log_dict
 
     @torch.no_grad()
     def _batch_p95(self, x: torch.Tensor) -> torch.Tensor:
@@ -160,8 +206,10 @@ class Intensity(nn.Module):
                 cur = self._batch_p95(cam_flat).clamp_min(self.eps)
                 self.epoch_sum.add_(cur)
                 self.epoch_cnt.add_(1)
+                self.last_batch_p95 = float(cur.item())
+
                 if self.epoch_cnt.item() == 1:
-                    print("[stats] first update, cur=", float(cur.item()))
+                    print("[stats] first update, cur=", float(cur.item()), flush=True)
 
         # ✅ 정규화는 “현재 scale”로만 (epoch 중에는 고정)
         cam = cam / (self.scale + self.eps)

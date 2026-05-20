@@ -21,7 +21,7 @@ def parse_opts():
                  type=str,
                  help='Path of the saved model checkpoint (.pth)'),
             dict(name='--root_path',
-                 default="/home/leessu/code/CTEN/tools/annotations/tsl",
+                 default="/home/leessu/code/CTEN_EmoLoss/tools/annotations/tsl",
                  type=str,
                  help='Global path of root directory'),
             dict(name="--video_path",
