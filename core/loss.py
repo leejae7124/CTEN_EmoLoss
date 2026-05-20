@@ -97,6 +97,13 @@ class Intensity(nn.Module):
         self.last_calib = {}
         self.last_batch_p95 = None
 
+        self.last_cam_stats = {}
+
+        self.register_buffer("epoch_cam_min_sum", torch.tensor(0.0))
+        self.register_buffer("epoch_cam_max_sum", torch.tensor(0.0))
+        self.register_buffer("epoch_cam_mean_sum", torch.tensor(0.0))
+        self.register_buffer("epoch_cam_std_sum", torch.tensor(0.0))
+
     def begin_epoch(self, epoch: int):
         """
         train loop에서 epoch 시작 시 호출.
@@ -111,6 +118,14 @@ class Intensity(nn.Module):
         self.epoch_sum.zero_()
         self.epoch_cnt.zero_()
 
+        self.epoch_cam_min_sum.zero_()
+        self.epoch_cam_max_sum.zero_()
+        self.epoch_cam_mean_sum.zero_()
+        self.epoch_cam_std_sum.zero_()
+
+        self.last_cam_stats = {}
+        self.last_batch_p95 = None
+
     @torch.no_grad()
     def end_epoch(self, epoch=None):
         """
@@ -120,6 +135,17 @@ class Intensity(nn.Module):
         old_scale = float(self.scale.item())
         cnt = int(self.epoch_cnt.item())
 
+        if cnt > 0:
+            raw_min_avg = float((self.epoch_cam_min_sum / self.epoch_cnt.float()).item())
+            raw_max_avg = float((self.epoch_cam_max_sum / self.epoch_cnt.float()).item())
+            raw_mean_avg = float((self.epoch_cam_mean_sum / self.epoch_cnt.float()).item())
+            raw_std_avg = float((self.epoch_cam_std_sum / self.epoch_cnt.float()).item())
+        else:
+            raw_min_avg = -1.0
+            raw_max_avg = -1.0
+            raw_mean_avg = -1.0
+            raw_std_avg = -1.0
+
         log_dict = {
             "old_scale": old_scale,
             "new_scale": old_scale,
@@ -127,6 +153,10 @@ class Intensity(nn.Module):
             "epoch_cnt": float(cnt),
             "updated": 0.0,
             "last_batch_p95": -1.0 if self.last_batch_p95 is None else float(self.last_batch_p95),
+            "raw_cam_min_avg": raw_min_avg,
+            "raw_cam_max_avg": raw_max_avg,
+            "raw_cam_mean_avg": raw_mean_avg,
+            "raw_cam_std_avg": raw_std_avg,
         }
 
         if self.cam_calib != "epoch_p95":
@@ -149,16 +179,25 @@ class Intensity(nn.Module):
                 "epoch_cnt": float(cnt),
                 "updated": 1.0,
                 "last_batch_p95": -1.0 if self.last_batch_p95 is None else float(self.last_batch_p95),
+                "raw_cam_min_avg": raw_min_avg,
+                "raw_cam_max_avg": raw_max_avg,
+                "raw_cam_mean_avg": raw_mean_avg,
+                "raw_cam_std_avg": raw_std_avg,
             }
 
+
             print(
-                f"[CAM CALIB] epoch={epoch} "
-                f"old_scale={old_scale:.8f} "
-                f"new_scale={new_scale_float:.8f} "
-                f"cnt={cnt} "
-                f"last_batch_p95={log_dict['last_batch_p95']:.8f}",
-                flush=True
-            )
+                    f"[CAM CALIB] epoch={epoch} "
+                    f"old_scale={old_scale:.8f} "
+                    f"new_scale={new_scale_float:.8f} "
+                    f"cnt={cnt} "
+                    f"last_batch_p95={log_dict['last_batch_p95']:.8f} "
+                    f"raw_min_avg={raw_min_avg:.8f} "
+                    f"raw_max_avg={raw_max_avg:.8f} "
+                    f"raw_mean_avg={raw_mean_avg:.8f} "
+                    f"raw_std_avg={raw_std_avg:.8f}",
+                    flush=True
+                )
         else:
             print(
                 f"[CAM CALIB] epoch={epoch} "
@@ -204,12 +243,39 @@ class Intensity(nn.Module):
         if self.cam_calib == "epoch_p95" and torch.is_grad_enabled() and self._collect_this_epoch:
             with torch.no_grad():
                 cur = self._batch_p95(cam_flat).clamp_min(self.eps)
+
+                raw_min = cam_flat.min()
+                raw_max = cam_flat.max()
+                raw_mean = cam_flat.mean()
+                raw_std = cam_flat.std(unbiased=False)
+
                 self.epoch_sum.add_(cur)
                 self.epoch_cnt.add_(1)
+
+                self.epoch_cam_min_sum.add_(raw_min)
+                self.epoch_cam_max_sum.add_(raw_max)
+                self.epoch_cam_mean_sum.add_(raw_mean)
+                self.epoch_cam_std_sum.add_(raw_std)
+
                 self.last_batch_p95 = float(cur.item())
+                self.last_cam_stats = {
+                    "raw_min": float(raw_min.item()),
+                    "raw_max": float(raw_max.item()),
+                    "raw_mean": float(raw_mean.item()),
+                    "raw_std": float(raw_std.item()),
+                    "raw_p95": float(cur.item()),
+                }
 
                 if self.epoch_cnt.item() == 1:
-                    print("[stats] first update, cur=", float(cur.item()), flush=True)
+                    print(
+                        "[stats] first update, "
+                        f"p95={float(cur.item()):.8f}, "
+                        f"min={float(raw_min.item()):.8f}, "
+                        f"max={float(raw_max.item()):.8f}, "
+                        f"mean={float(raw_mean.item()):.8f}, "
+                        f"std={float(raw_std.item()):.8f}",
+                        flush=True
+                    )
 
         # ✅ 정규화는 “현재 scale”로만 (epoch 중에는 고정)
         cam = cam / (self.scale + self.eps)
